@@ -1,1 +1,1 @@
-# corrency-converter
+# currency-converter
