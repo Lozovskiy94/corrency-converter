@@ -1,26 +1,2 @@
-<header class="header">
-  <h1 class="header-massage">Конвертер Валют</h1>
-  <h2>1 USD = {{rates['USD']}}UA</h2>
-  <h2>1 EUR = {{rates['EUR']}}UA</h2>
-</header>
-<div class="main-content">
-  <div class="first-cur">
-    <input #input1 type="text" [(ngModel)]="firstInput" (focus)="onFirstInputFocus()" (blur)="onFirstBlur()" (input)="onInputChange($event)">
-    <span class="bar"></span>
-    <select class="select" #c1 (change)="onFirstChangeOption(c1.value)" (mouseleave)='changeFirstSelect(c1.value)'>
-      <option value=USD>USD</option>
-      <option value=EUR>EUR</option>
-      <option value=UAH>UAH</option>
-    </select>
-  </div>
-  <img class="arrows" src="https://cdn-icons-png.flaticon.com/512/60/60671.png" alt="arrows">
-  <div class="second-cur">
-    <input #input2 type="text" [(ngModel)]="secondInput" (focus)="onSecondInputFocus()" (blur)="onSecondBlur()" (input)="onInputChange($event)">
-    <span class="bar"></span>
-    <select class="select" #c2 (change)="onSecondChangeOption(c2.value)" (mouseleave)="changeSecondSelect(c2.value)">
-      <option value=USD>USD</option>
-      <option value=EUR>EUR</option>
-      <option value=UAH>UAH</option>
-    </select>
-  </div>
-</div>
+<app-header></app-header>
+<app-currency></app-currency>
