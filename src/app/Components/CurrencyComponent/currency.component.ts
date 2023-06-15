@@ -1,140 +1,170 @@
-import { Component, ViewChild, ElementRef } from '@angular/core';
+import { Component, ViewChild, ElementRef, forwardRef } from '@angular/core';
 import { CurrencyapidataService } from '../../currencyapidata.service';
-
-type MyRequest = {
-    base: string;
-    date: string;
-    motd: {
-      msg: string;
-      url: string;
-    };
-    rates: {
-      [key: string]: number;
-    };
-    success: boolean;
-  };
+import { NG_VALUE_ACCESSOR, ControlValueAccessor, FormControl } from '@angular/forms';
+import { MyRequest } from '../../interfaces/my.request';
 
 @Component({
   selector: 'app-currency',
-  template: `
-  <div class="main-content">
-  <div class="first-cur">
-    <input #input1 type="text" [(ngModel)]="firstInput" (focus)="onFirstInputFocus()" (blur)="onFirstBlur()" (input)="onInputChange($event)">
-    <span class="bar"></span>
-    <select class="select" #c1 (change)="onFirstChangeOption(c1.value)" (mouseleave)='changeFirstSelect(c1.value)'>
-      <option *ngFor="let cur of curArr" [value]="cur">{{cur}}</option>
-    </select>
-  </div>
-  <img class="arrows" src="https://cdn-icons-png.flaticon.com/512/60/60671.png" alt="arrows">
-  <div class="second-cur">
-    <input #input2 type="text" [(ngModel)]="secondInput" (focus)="onSecondInputFocus()" (blur)="onSecondBlur()" (input)="onInputChange($event)">
-    <span class="bar"></span>
-    <select class="select" #c2 (change)="onSecondChangeOption(c2.value)" (mouseleave)="changeSecondSelect(c2.value)">
-    <option *ngFor="let cur of curArr" [value]="cur">{{cur}}</option>
-    </select>
-  </div>
-</div>
-  `
-//   styleUrls: ['./currency.component.css']
+  templateUrl: './currency.component.html',
+  providers: [
+    {
+      provide: NG_VALUE_ACCESSOR,
+      useExisting: forwardRef(() => CurrencyComponent),
+      multi: true
+    }
+  ]
 })
-export class CurrencyComponent {
-    @ViewChild('input1') input1!: ElementRef;
-    @ViewChild('input2') input2!: ElementRef;
-    @ViewChild('c1') c1!: ElementRef;
-    @ViewChild('c2') c2!: ElementRef;
-  
-    request: MyRequest = {
-      base: '',
-      date: '',
-      motd: { msg: '', url: '' },
-      rates: {},
-      success: false
-    };
-  
-    firstInput = 0;
-    secondInput = 0;
-    currency1 = 'USD';
-    currency2 = 'USD';
-    curArr: string[] = ['USD','UAH', 'EUR','RUB']
-  
-    changeFirstSelect(selectorValue: string) {
+export class CurrencyComponent implements ControlValueAccessor {
+  @ViewChild('input1', { static: true }) input1!: ElementRef<HTMLInputElement>;
+  @ViewChild('input2', { static: true }) input2!: ElementRef<HTMLInputElement>;
+  @ViewChild('c1') c1!: ElementRef;
+  @ViewChild('c2') c2!: ElementRef;
+
+  firstInputControl: FormControl = new FormControl();
+  secondInputControl: FormControl = new FormControl();
+  request: MyRequest = {
+    base: '',
+    date: '',
+    motd: { msg: '', url: '' },
+    rates: {},
+    success: false
+  };
+  currency1 = 'USD';
+  currency2 = 'USD';
+  curArr: string[] = ['USD', 'UAH', 'EUR', 'RUB'];
+  private onChange: any = () => { };
+  private onTouched: any = () => { };
+  private conversionTimeout: any;
+  private activeInput: FormControl;
+
+  constructor(private currency: CurrencyapidataService) {
+    this.activeInput = this.firstInputControl;
+    this.firstInputControl.setValue('0');
+    this.secondInputControl.setValue('0');
+  }
+
+  ngOnInit() {
+    this.firstInputControl.valueChanges.subscribe(value => {
+      this.onChange(value);
+      this.convert(this.currency1, this.currency2);
+    });
+
+    this.secondInputControl.valueChanges.subscribe(value => {
+      this.onChange(value);
+      this.convert(this.currency1, this.currency2);
+    });
+
+    this.focusOrBlurChange(this.input1.nativeElement, '0', '');
+    this.focusOrBlurChange(this.input2.nativeElement, '0', '');
+  }
+
+  writeValue(value: number): void {
+    this.firstInputControl.setValue(value);
+    this.secondInputControl.setValue(value);
+    this.convert(this.currency1, this.currency2);
+  }
+
+  registerOnChange(fn: any): void {
+    this.onChange = fn;
+  }
+
+  registerOnTouched(fn: any): void {
+    this.onTouched = fn;
+  }
+
+  changeSelect(selectorValue: string, isCurrency1: boolean) {
+    if (isCurrency1) {
       this.currency1 = selectorValue;
-    }
-  
-    changeSecondSelect(selectorValue: string) {
+      if (this.currency1 === this.currency2) {
+        this.firstInputControl.setValue(this.secondInputControl.value);
+      }
+      this.activeInput = this.firstInputControl;
+    } else {
       this.currency2 = selectorValue;
+      this.activeInput = this.secondInputControl;
     }
-  
-    onInputChange(event: Event) {
-      const inputElement = event.target as HTMLInputElement;
-      if (inputElement instanceof HTMLInputElement) {
-        const sanitizedValue = inputElement.value.replace(/[^0-9.]|(\.(?=.*\.))/g, '');
-        inputElement.value = sanitizedValue;
-        event.preventDefault();
-        this.convert(this.currency1, this.currency2);
+
+    this.convert(this.currency1, this.currency2);
+  }
+
+  onInputChange(event: Event) {
+    const inputElement = event.target as HTMLInputElement;
+    if (!(inputElement instanceof HTMLInputElement)) {
+      return;
+    }
+
+    const sanitizedValue = inputElement.value.replace(/[^0-9.]|(\.(?=.*\.))/g, '');
+    inputElement.value = sanitizedValue;
+    event.preventDefault();
+
+    this.activeInput.setValue(sanitizedValue, { emitEvent: false });
+    this.convert(this.currency1, this.currency2);
+  }
+
+  focusOrBlurChange(inputElement: HTMLInputElement, oldValue: string, newValue: string) {
+    inputElement.addEventListener('focus', () => {
+      if (inputElement.value === oldValue) {
+        inputElement.value = newValue;
       }
-    }
-  
-    focusOrBlurChange(elem: ElementRef, oldVal: string, newVal: string) {
-      if (elem.nativeElement.value === oldVal) {
-        elem.nativeElement.value = newVal;
-      } else {
-        return;
+    });
+
+    inputElement.addEventListener('blur', () => {
+      if (inputElement.value === '') {
+        inputElement.value = oldValue;
       }
-    }
-  
-    onFirstInputFocus() {
-      this.focusOrBlurChange(this.input1, '0', '');
-    }
-  
-    onFirstBlur() {
-      this.focusOrBlurChange(this.input1, '', '0');
-    }
-  
-    onSecondBlur() {
-      this.focusOrBlurChange(this.input2, '', '0');
-    }
-  
-    onSecondInputFocus() {
-      this.focusOrBlurChange(this.input2, '0', '');
-    }
-  
-    onFirstChangeOption(option: string) {
+    });
+  }
+
+  onChangeOption(option: string, isCurrency1: boolean) {
+    if (isCurrency1) {
       this.convert(option, this.currency2);
-    }
-  
-    onSecondChangeOption(option: string) {
+    } else {
       this.convert(this.currency1, option);
     }
-  
-    constructor(private currency: CurrencyapidataService) {}
-  
-    convert(currency1: string, currency2: string) {
-      const activeElement = document.activeElement;
-      const activeInput1 = activeElement === this.input1.nativeElement || activeElement === this.c2.nativeElement;
-      const activeInput2 = activeElement === this.input2.nativeElement || activeElement === this.c1.nativeElement;
-    
-      if (activeInput1 || activeInput2) {
-        const activeCurrency = activeInput1 ? currency1 : currency2;
-        const inactiveCurrency = activeInput1 ? currency2 : currency1;
-        const activeInput = activeInput1 ? this.firstInput : this.secondInput;
-        let targetInput: number;
-    
-        this.currency.getCurrencyData(activeCurrency).subscribe((data) => {
-          this.request = data as MyRequest;
-  
-          if (inactiveCurrency) {
-            targetInput = this.request.rates[inactiveCurrency] * activeInput;
-          } else {
-            targetInput = activeInput;
-          }
-    
-          if (activeInput1) {
-            this.secondInput = Number(targetInput.toFixed(2));
-          } else {
-            this.firstInput = Number(targetInput.toFixed(2));
-          }
-        });
-      }
+  }
+
+  convert(currency1: string, currency2: string) {
+    const activeInput = this.getActiveInput();
+    const activeCurrency = this.getActiveCurrency(activeInput, currency1, currency2);
+    const inactiveCurrency = this.getInactiveCurrency(activeCurrency, currency1, currency2);
+    const activeInputValue = activeInput.value;
+
+    if (!activeCurrency || !inactiveCurrency || !activeInputValue) {
+      return;
     }
+
+    this.currency.getCurrencyData(activeCurrency).subscribe((data) => {
+      console.log(data)
+      const request = data as MyRequest;
+      const targetInput = this.getTargetInput(request, inactiveCurrency, activeInputValue);
+
+      if (activeCurrency === currency1) {
+        this.secondInputControl.setValue(Number(targetInput.toFixed(2)), { emitEvent: false });
+      } else {
+        this.firstInputControl.setValue(Number(targetInput.toFixed(2)), { emitEvent: false });
+      }
+    });
+  }
+
+  getActiveInput(): FormControl {
+    const activeElement = document.activeElement;
+    const activeInput1 = activeElement === this.input1.nativeElement || activeElement === this.c2.nativeElement;
+    return activeInput1 ? this.firstInputControl : this.secondInputControl;
+  }
+
+  getActiveCurrency(activeInput: FormControl, currency1: string, currency2: string): string {
+    return activeInput === this.firstInputControl ? currency1 : currency2;
+  }
+
+  getInactiveCurrency(activeCurrency: string, currency1: string, currency2: string): string {
+    return activeCurrency === currency1 ? currency2 : currency1;
+  }
+
+  getTargetInput(request: MyRequest, inactiveCurrency: string, activeInput: number): number {
+    if (request.rates && inactiveCurrency in request.rates) {
+      return request.rates[inactiveCurrency] * activeInput;
+    } else {
+      return activeInput;
+    }
+  }
 }

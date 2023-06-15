@@ -6,9 +6,9 @@ import { HttpClient } from '@angular/common/http'
 })
 export class CurrencyapidataService {
 
-  constructor(private http: HttpClient) {}
+  constructor(private http: HttpClient) { }
 
-  getCurrencyData (country:string) {
+  getCurrencyData(country: string) {
 
     let url = `https://api.exchangerate.host/latest?base=${country}`
     return this.http.get(url)

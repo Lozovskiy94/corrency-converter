@@ -1,0 +1,17 @@
+<div class="main-content">
+  <div class="first-cur">
+    <input #input1 type="text" [formControl]="firstInputControl" (input)="onInputChange($event)">
+    <span class="bar"></span>
+    <select class="select" #c1 [(ngModel)]="currency1" (ngModelChange)="changeSelect(c1.value, true)">
+      <option *ngFor="let cur of curArr" [value]="cur" [selected]="cur === currency1">{{cur}}</option>
+    </select>
+  </div>
+  <img class="arrows" src="https://cdn-icons-png.flaticon.com/512/60/60671.png" alt="arrows">
+  <div class="second-cur">
+    <input #input2 type="text" [formControl]="secondInputControl" (input)="onInputChange($event)">
+    <span class="bar"></span>
+    <select class="select" #c2 [(ngModel)]="currency2" (ngModelChange)="changeSelect(c2.value, false)">
+      <option *ngFor="let cur of curArr" [value]="cur" [selected]="cur === currency2">{{cur}}</option>
+    </select>
+  </div>
+</div>
